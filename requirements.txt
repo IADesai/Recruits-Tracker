@@ -1,0 +1,13 @@
+pytest
+pylint
+python-dotenv
+psycopg2-binary
+pandas
+streamlit
+matplotlib
+seaborn
+plotly
+redshift_connector
+watchdog
+openpyxl
+

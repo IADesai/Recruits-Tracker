@@ -1,0 +1,129 @@
+"""Streamlit dashboard application code"""
+from psycopg2 import connect
+from psycopg2.extensions import connection
+import streamlit as st
+import pandas as pd
+from os import environ
+from dotenv import load_dotenv
+
+load_dotenv()
+config = environ
+
+def get_data(conn: connection) -> pd.DataFrame:
+    """Function that gets the required data from the database connection"""
+    cursor = conn.cursor()
+    cursor.execute("SELECT \
+  m.member_id, \
+  m.name AS member_name, \
+  tl.name AS team_leader_name, \
+  ra.name AS recruiting_advisor_name, \
+  r.role_name, \
+  md.purchase, \
+  cd.training_date, \
+  cd.start_date, \
+  cd.thirty_days, \
+  cd.ninety_days, \
+  cd.one_eighty_days, \
+  ms.newcomer_demo, \
+  ms.first_sale, \
+  ms.second_sale, \
+  ms.third_sale, \
+  ms.fourth_sale, \
+  ms.fifth_sale, \
+  ms.sixth_sale, \
+  ms.seventh_sale, \
+  ms.eighth_sale \
+FROM \
+  members m \
+JOIN \
+  roles r ON m.role_id_fk = r.role_id \
+LEFT JOIN \
+  member_details md ON m.member_id = md.member_id_details_fk \
+LEFT JOIN \
+  calendar_dates cd ON md.training_date_id_fk = cd.training_date_id \
+LEFT JOIN \
+  member_sales ms ON m.member_id = ms.member_id_fk \
+LEFT JOIN \
+  member_relationships mr ON m.member_id = mr.member_relationship_id_fk \
+LEFT JOIN \
+  members tl ON mr.team_leader_id = tl.member_id \
+LEFT JOIN \
+  members ra ON mr.recruiting_advisor_id = ra.member_id \
+ORDER BY team_leader_name, role_name;")
+    rows = cursor.fetchall()
+    live_dataframe = pd.DataFrame(rows, columns=[desc[0] for desc in cursor.description])
+    cursor.execute("SELECT * FROM calendar_dates WHERE training_date_id > 0;")
+    rows = cursor.fetchall()
+    calendar_dataframe = pd.DataFrame(rows, columns=[desc[0] for desc in cursor.description])
+    cursor.execute("SELECT name FROM members WHERE role_id_fk = 1;")
+    rows = cursor.fetchall()
+    team_leader_dataframe = pd.DataFrame(rows, columns=[desc[0] for desc in cursor.description])
+    cursor.close()
+    conn.close()
+    return live_dataframe, calendar_dataframe, team_leader_dataframe
+
+
+def dashboard_header() -> None:
+    """Creates a header for the dashboard and title on tab."""
+
+    st.markdown("<h1 style='text-align: center; color: white;'>New Recruits Table</h1>", unsafe_allow_html=True)
+
+
+def sidebar() -> int:
+    """Sidebar for the streamlit dashboard, with interactive buttons"""
+    if "start_index" not in st.session_state:
+        st.session_state.start_index = 0
+    st.sidebar.markdown("<h1 style='text-align: center;'>Thermomix Recruits Tracker</h1>", unsafe_allow_html=True)
+    st.sidebar.markdown("An app for helping you track your thermomix recruits")
+    st.sidebar.title("Options & Filters Menu")
+    st.sidebar.page_link("streamlit.py", label="Home", icon="🏠")
+    st.sidebar.page_link("pages/search.py", label="Recruit Search", icon="🔍")
+    st.sidebar.page_link("pages/insertions.py", label="Add Recruit", icon="➕")
+
+
+def on_toggle_or_archive_change() -> None:
+    """Sets the index back to 0 for all of the graphs upon changing
+    the toggle status or which archive is being viewed.
+    """
+    st.session_state.start_index = 0
+
+
+def create_tables(data: pd.DataFrame, cal_data: pd.DataFrame, team_leader_data: pd.DataFrame) -> None:
+    """creates main table"""
+    unique_team_leaders = team_leader_data['name'].unique()
+    unique_team_leaders_with_none = [None] + list(unique_team_leaders)
+    selected_leaders = st.multiselect('Select Team Leader/s', unique_team_leaders_with_none, default=unique_team_leaders_with_none)
+    filtered_df = data[data['team_leader_name'].isin(selected_leaders)]
+    st.dataframe(filtered_df, hide_index=True, use_container_width=True)
+
+    st.markdown("<h1 style='text-align: center;'>Calendar Table</h1>", unsafe_allow_html=True)
+    cal_data['start_year'] = pd.to_datetime(cal_data['start_date']).dt.year
+    unique_years = cal_data['start_year'].unique()
+    selected_year = st.selectbox('Select Year', unique_years)
+    filtered_df = cal_data[cal_data['start_year'] == selected_year]
+    st.dataframe(filtered_df, hide_index=True, use_container_width=True)
+
+
+if __name__ == "__main__":
+
+    st.set_page_config(page_title="Thermomix Recruits Tracker", layout="wide")
+
+    custom_css = """
+    <style>
+    [data-testid="stSidebarNav"] {
+        display: none;
+    }
+    </style>
+    """
+    st.markdown(custom_css, unsafe_allow_html=True)
+
+    dashboard_header()
+    sidebar()
+
+    conn_thermomix = connect(
+        database=config["DATABASE_NAME"]
+    )   
+
+    live_df, calendar, team_leaders = get_data(conn_thermomix)
+
+    create_tables(live_df, calendar, team_leaders)
