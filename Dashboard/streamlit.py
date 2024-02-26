@@ -77,8 +77,10 @@ def sidebar() -> int:
     st.sidebar.markdown("An app for helping you track your thermomix recruits")
     st.sidebar.title("Options & Filters Menu")
     st.sidebar.page_link("streamlit.py", label="Home", icon="🏠")
+    st.sidebar.page_link("pages/insertions.py", label="Add/Remove Recruit", icon="📝")
+    st.sidebar.page_link("pages/edit.py", label="Edit Recruit Information", icon="✍️")
+    st.sidebar.page_link("pages/update.py", label="Update Recruit Sales Info/Dates", icon="📅")
     st.sidebar.page_link("pages/search.py", label="Recruit Search", icon="🔍")
-    st.sidebar.page_link("pages/insertions.py", label="Add Recruit", icon="➕")
 
 
 def on_toggle_or_archive_change() -> None:

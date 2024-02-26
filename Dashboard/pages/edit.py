@@ -67,7 +67,7 @@ ORDER BY team_leader_name, role_name;")
 def dashboard_header() -> None:
     """Creates a header for the dashboard and title on tab."""
 
-    st.markdown("<h1 style='text-align: center; color: white;'>Add/Remove Recruits</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; color: white;'>Edit Recruit Information</h1>", unsafe_allow_html=True)
 
 
 def sidebar() -> int:
@@ -91,13 +91,22 @@ def on_toggle_or_archive_change() -> None:
     st.session_state.start_index = 0
 
 
-def create_inserts(data: pd.DataFrame, cal_data: pd.DataFrame, team_leader_data: pd.DataFrame, conn_insert: connection) -> None:
+def clear_form():
+    st.session_state["name"] = ""
+
+
+def create_inserts(data: pd.DataFrame, cal_data: pd.DataFrame, team_leader_data: pd.DataFrame, conn_update: connection) -> None:
     """creates main table"""
 
-    with st.form("insert_recruit_form"):
+    # Initialize session_state if not present
+    if "new_advisor_name" not in st.session_state:
+        st.session_state.new_advisor_name = ""
+
+    with st.form("edit_recruit_form"):
         col1, col2, col3 = st.columns(3)
         with col1:
-            new_recruit_name = st.text_input("Recruit Name")
+            existing_recruit_names = data['member_name'].unique()
+            existing_recruit_name = st.selectbox("Select Recruit to Update", existing_recruit_names)
         with col2:
             new_recruit_purchase = st.selectbox("Recruit Purchase", ["Owner", "Earner"])
         with col3:
@@ -112,16 +121,32 @@ def create_inserts(data: pd.DataFrame, cal_data: pd.DataFrame, team_leader_data:
         with col6:
             existing_advisors = list(data["member_name"].unique())
             new_recruit_recruiting_advisor = st.selectbox("Recruiting Advisor", existing_advisors)
-            st.markdown("If unable to find advisor, please click 'Add New Recruiting Advisor' below")
+        col7, col8, col9 = st.columns(3)
+        with col7:
+            input_container = st.empty()
+            st.session_state.new_advisor_name = input_container.text_input("Update Advisor's Name (Optional)", key="name")
+        with col8:
+            st.markdown("")
+        with col9:
+            st.markdown("If unable to find advisor, please click 'Add New Recruiting Advisor' in the 'Add/Remove Recruit' tab")
 
-        submit_recruit = st.form_submit_button("Add Recruit")
+        f3, f4, f5, f6, f7 = st.columns([1, 1, 1, 1, 1])
+        with f3:
+            clear = st.form_submit_button(label="Clear Advisor Name", on_click=clear_form)
+        with f4:
+            submit = st.form_submit_button("Submit Recruit Info")
 
-    if submit_recruit:
-        cursor = conn_insert.cursor()
+    if submit:
+        cursor = conn_update.cursor()
+
+        # Get existing_member_id from members table
+        cursor.execute("SELECT member_id FROM members WHERE name = %s", (existing_recruit_name,))
+        existing_member_id = cursor.fetchone()[0]
+
         # Get training_date_id from calendar_dates table
         new_recruit_year = int(new_recruit_year)
         cursor.execute("SELECT training_date_id FROM calendar_dates WHERE training_date = %s AND EXTRACT(YEAR FROM start_date) = %s",
-                   (new_recruit_training_date, new_recruit_year))
+                       (new_recruit_training_date, new_recruit_year))
         training_date_id = cursor.fetchone()[0]
 
         # Get team_leader_id from members table
@@ -132,78 +157,26 @@ def create_inserts(data: pd.DataFrame, cal_data: pd.DataFrame, team_leader_data:
         cursor.execute("SELECT member_id FROM members WHERE name = %s", (new_recruit_recruiting_advisor,))
         recruiting_advisor_id = cursor.fetchone()[0]
 
-        # Insert new recruit into members table
-        cursor.execute("INSERT INTO members (name, role_id_fk) VALUES (%s, %s) RETURNING member_id",
-                      (new_recruit_name, 2))
-        member_id = cursor.fetchone()[0]
+        # Delete existing records in member_details table
+        cursor.execute("DELETE FROM member_details WHERE member_id_details_fk = %s", (existing_member_id,))
 
-        # Insert new recruit details into member_details table
+        # Insert new records in member_details table
         cursor.execute("INSERT INTO member_details (member_id_details_fk, purchase, training_date_id_fk) VALUES (%s, %s, %s)",
-                      (member_id, new_recruit_purchase, training_date_id))
+                       (existing_member_id, new_recruit_purchase, training_date_id))
 
-        # Insert new recruit sales into member_sales table
-        cursor.execute("INSERT INTO member_sales (member_id_fk) VALUES (%s) RETURNING member_id_fk", (member_id,))
-        member_id_fk_sales = cursor.fetchone()[0]
+        cursor.execute("DELETE FROM member_relationships WHERE member_relationship_id_fk = %s", (existing_member_id,))
 
-        # Insert sales details into member_sales table
-        cursor.execute("UPDATE member_sales SET newcomer_demo = NULL, first_sale = NULL, second_sale = NULL, third_sale = NULL, "
-                      "fourth_sale = NULL, fifth_sale = NULL, sixth_sale = NULL, seventh_sale = NULL, eighth_sale = NULL "
-                      "WHERE member_id_fk = %s", (member_id_fk_sales,))
+        # Insert new relationships in member_relationships table
+        cursor.execute("INSERT INTO member_relationships (member_relationship_id_fk, team_leader_id, recruiting_advisor_id) VALUES (%s, %s, %s)",
+                       (existing_member_id, team_leader_id, recruiting_advisor_id))
 
-        # Insert new recruit relationships into member_relationships table
-        cursor.execute("INSERT INTO member_relationships (member_relationship_id_fk, team_leader_id, recruiting_advisor_id) "
-                      "VALUES (%s, %s, %s)", (member_id, team_leader_id, recruiting_advisor_id))
+        if st.session_state.new_advisor_name != "":
+            cursor.execute("UPDATE members SET name = %s WHERE name = %s", (st.session_state.new_advisor_name, existing_recruit_name,))
 
-        conn_insert.commit()
+        conn_update.commit()
         cursor.close()
-        st.success(f"Recruit {new_recruit_name} added successfully!")
-        data, not_needed, not_needed_two = get_data(conn_insert)
-
-    with st.form("new_advisor_form"):
-        new_advisor_name = st.text_input("Enter New Recruiting Advisor Name")
-        if st.form_submit_button("Add New Recruiting Advisor"):
-            cursor = conn_insert.cursor()
-
-            # Insert new advisor into members table
-            cursor.execute("INSERT INTO members (name, role_id_fk) VALUES (%s, %s)",
-                          (new_advisor_name, 2))
-
-            conn_insert.commit()
-            cursor.close()
-            st.success(f"New advisor {new_advisor_name} added successfully!")
-            data, not_needed, not_needed_two = get_data(conn_insert)
-
-    with st.form("remove_advisor_form"):
-      # Get unique advisor names and sort them to match the order in the DataFrame
-      unique_advisor_names = sorted(data["member_name"].unique())
-      selected_advisor_container = st.empty()
-      advisor_to_remove = selected_advisor_container.selectbox("Select Advisor to Remove", unique_advisor_names)
-
-      if st.form_submit_button("Remove Advisor"):
-          cursor = conn_insert.cursor()
-
-          # Check if the advisor has recruits before removing
-          cursor.execute("SELECT COUNT(*) FROM member_relationships WHERE team_leader_id = "
-                          "(SELECT member_id FROM members WHERE name = %s LIMIT 1) OR recruiting_advisor_id = "
-                          "(SELECT member_id FROM members WHERE name = %s LIMIT 1)", (advisor_to_remove, advisor_to_remove,))
-          recruit_count = cursor.fetchall()[0]
-
-          if recruit_count[0] > 0:
-              st.error(f"Cannot remove advisor {advisor_to_remove}. There are {recruit_count[0]} recruits assigned to this advisor.")
-          else:
-              # Remove advisor from members table
-              cursor.execute("DELETE FROM members WHERE name = %s", (advisor_to_remove,))
-
-              conn_insert.commit()
-              cursor.close()
-              st.success(f"Advisor {advisor_to_remove} removed successfully!")
-
-              # Refresh the data DataFrame after successful removal
-              data, not_needed, not_needed_two = get_data(conn_insert)
-
-              # Update the options in the existing selectbox
-              unique_advisor_names = sorted(data["member_name"].unique())
-              advisor_to_remove = selected_advisor_container.selectbox("Select Advisor to Remove", unique_advisor_names, index=0)
+        st.success(f"Recruit {existing_recruit_name} updated successfully!")
+        data, not_needed, not_needed_two = get_data(conn_update)
 
     st.markdown("<h1 style='text-align: center; color: white;'>Recruit Data</h1>", unsafe_allow_html=True)
     st.dataframe(data, hide_index=True)

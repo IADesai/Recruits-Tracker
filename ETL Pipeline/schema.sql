@@ -30,13 +30,13 @@ CREATE TABLE members (
 );
 
 CREATE TABLE member_details (
-  member_id_details_fk INTEGER REFERENCES members(member_id),
+  member_id_details_fk INTEGER REFERENCES members(member_id) ON DELETE CASCADE,
   purchase TEXT,
   training_date_id_fk INTEGER REFERENCES calendar_dates(training_date_id)
 );
 
 CREATE TABLE member_sales (
-  member_id_fk INTEGER REFERENCES members(member_id),
+  member_id_fk INTEGER REFERENCES members(member_id) ON DELETE CASCADE,
   newcomer_demo DATE,
   first_sale VARCHAR(20) CHECK (first_sale IS NULL OR first_sale = 'DNQ' OR TO_DATE(first_sale, 'YYYY-MM-DD HH24:MI:SS') IS NOT NULL),
   second_sale VARCHAR(20) CHECK (second_sale IS NULL OR second_sale = 'DNQ' OR TO_DATE(second_sale, 'YYYY-MM-DD HH24:MI:SS') IS NOT NULL),
@@ -49,7 +49,7 @@ CREATE TABLE member_sales (
 );
 
 CREATE TABLE member_relationships (
-  member_relationship_id_fk INTEGER REFERENCES members(member_id),
+  member_relationship_id_fk INTEGER REFERENCES members(member_id) ON DELETE CASCADE,
   team_leader_id INTEGER,
   recruiting_advisor_id INTEGER
 );

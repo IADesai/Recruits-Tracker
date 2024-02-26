@@ -66,7 +66,7 @@ ORDER BY team_leader_name, role_name;")
 def dashboard_header() -> None:
     """Creates a header for the dashboard and title on tab."""
 
-    st.markdown("<h1 style='text-align: center; color: white;'>New Recruits Search</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; color: white;'>Recruits Search</h1>", unsafe_allow_html=True)
 
 
 def sidebar() -> int:
@@ -77,8 +77,10 @@ def sidebar() -> int:
     st.sidebar.markdown("An app for helping you track your thermomix recruits")
     st.sidebar.title("Options & Filters Menu")
     st.sidebar.page_link("streamlit.py", label="Home", icon="🏠")
+    st.sidebar.page_link("pages/insertions.py", label="Add/Remove Recruit", icon="📝")
+    st.sidebar.page_link("pages/edit.py", label="Edit Recruit Information", icon="✍️")
+    st.sidebar.page_link("pages/update.py", label="Update Recruit Sales Info/Dates", icon="📅")
     st.sidebar.page_link("pages/search.py", label="Recruit Search", icon="🔍")
-    st.sidebar.page_link("pages/insertions.py", label="Add Recruit", icon="➕")
 
 
 def on_toggle_or_archive_change() -> None:
@@ -92,8 +94,8 @@ def create_tables(data: pd.DataFrame, cal_data: pd.DataFrame, team_leader_data: 
     """creates main table"""
     unique_member_names = data['member_name'].unique()
     selected_member_name = st.text_input('Search for Member Name (Please press Enter to apply)', '')
-    filtered_df = data[data['member_name'].str.contains(selected_member_name, case=False)]
-    st.dataframe(filtered_df, hide_index=True, use_container_width=True)
+    filtered_data_df = data[data['member_name'].str.contains(selected_member_name, case=False)]
+    st.dataframe(filtered_data_df, hide_index=True, use_container_width=True)
 
     st.markdown("<h1 style='text-align: center;'>Calendar Table</h1>", unsafe_allow_html=True)
     cal_data['start_year'] = pd.to_datetime(cal_data['start_date']).dt.year
