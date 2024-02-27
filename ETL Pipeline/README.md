@@ -25,6 +25,6 @@ DATABASE_NAME_INITIAL=XXXXXXXXX
 
 Database Format Below
 
-| transaction_id | transaction_date | transaction_description | transaction_value | transaction_type |
-| :------------: | :--------------: | :---------------------: | :---------------: | :--------------: |
-|     serial     |       date       |          text           |      decimal      |       text       |
+| example |
+| :-----: | ---- | ---- | ------- |
+| serial  | date | text | decimal |
