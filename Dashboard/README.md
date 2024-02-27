@@ -10,4 +10,5 @@ This folder contains all code and resources required for the dashboard.
 
 ## Development Instructions
 
+- Put environment variables into a secret.toml file in .streamlit folder
 - Run `streamlit run streamlit.py`
