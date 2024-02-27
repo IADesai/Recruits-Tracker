@@ -217,6 +217,13 @@ def create_inserts(data: pd.DataFrame, cal_data: pd.DataFrame, team_leader_data:
   st.markdown("<h1 style='text-align: center; color: white;'>Recruit Data</h1>", unsafe_allow_html=True)
   st.dataframe(data, hide_index=True)
 
+  st.markdown("<h1 style='text-align: center;'>Calendar Table</h1>", unsafe_allow_html=True)
+  cal_data['start_year'] = pd.to_datetime(cal_data['start_date']).dt.year
+  unique_years = cal_data['start_year'].unique()
+  selected_year = st.selectbox('Select Year', unique_years)
+  filtered_df = cal_data[cal_data['start_year'] == selected_year].drop(columns=['start_year', 'training_date_id'])
+  st.dataframe(filtered_df, hide_index=True, use_container_width=True)
+
 if __name__ == "__main__":
 
   st.set_page_config(page_title="Thermomix Recruits Tracker", layout="wide")

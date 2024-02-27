@@ -104,7 +104,7 @@ def create_sales_insert_form(data: pd.DataFrame, conn_insert: connection) -> Non
         form_column, data_column = st.columns(2)
         with form_column:
             unique_member_names = data['member_name'].unique()
-            selected_recruit = st.selectbox('Select Recruit Name', unique_member_names, index=None, placeholder="Choose a Recruit...")
+            selected_recruit = st.selectbox('Select Recruit Name*', unique_member_names, index=None, placeholder="Choose a Recruit...")
 
             newcomer_demo_date = st.date_input("Newcomer Demo Date", key="newcomer_demo_date", value=None)
             newcomer_demo_remove = st.checkbox("Remove Newcomer Demo Date")
