@@ -91,10 +91,6 @@ def on_toggle_or_archive_change() -> None:
     st.session_state.start_index = 0
 
 
-def clear_form():
-    st.session_state["name"] = ""
-
-
 def create_inserts(data: pd.DataFrame, cal_data: pd.DataFrame, team_leader_data: pd.DataFrame, conn_update: connection) -> None:
     """creates main table"""
 
@@ -102,25 +98,25 @@ def create_inserts(data: pd.DataFrame, cal_data: pd.DataFrame, team_leader_data:
     if "new_advisor_name" not in st.session_state:
         st.session_state.new_advisor_name = ""
 
-    with st.form("edit_recruit_form"):
+    with st.form("edit_recruit_form", clear_on_submit=True):
         col1, col2, col3 = st.columns(3)
         with col1:
             existing_recruit_names = data['member_name'].unique()
-            existing_recruit_name = st.selectbox("Select Recruit to Update", existing_recruit_names)
+            existing_recruit_name = st.selectbox("Select Recruit to Update *", existing_recruit_names, index=None, placeholder="Choose a Recruit...")
         with col2:
-            new_recruit_purchase = st.selectbox("Recruit Purchase", ["Owner", "Earner"])
+            new_recruit_purchase = st.selectbox("Recruit Purchase *", ["Owner", "Earner"], index=None)
         with col3:
-            new_recruit_training_date = st.selectbox("Training Date", cal_data["training_date"].unique())
+            new_recruit_training_date = st.selectbox("Training Date *", cal_data["training_date"].unique(), index=None)
         col4, col5, col6 = st.columns(3)
         with col4:
             cal_data['start_year'] = pd.to_datetime(cal_data['start_date']).dt.year
             unique_years = cal_data['start_year'].unique()
-            new_recruit_year = st.selectbox("Calendar Year", unique_years)
+            new_recruit_year = st.selectbox("Calendar Year *", unique_years, index=None)
         with col5:
-            new_recruit_team_leader = st.selectbox("Team Leader", team_leader_data["name"].unique())
+            new_recruit_team_leader = st.selectbox("Team Leader *", team_leader_data["name"].unique(), index=None, placeholder="Choose a Team Leader...")
         with col6:
             existing_advisors = list(data["member_name"].unique())
-            new_recruit_recruiting_advisor = st.selectbox("Recruiting Advisor", existing_advisors)
+            new_recruit_recruiting_advisor = st.selectbox("Recruiting Advisor *", existing_advisors, index=None, placeholder="Choose a Recruiting Advisor...")
         col7, col8, col9 = st.columns(3)
         with col7:
             input_container = st.empty()
@@ -130,53 +126,49 @@ def create_inserts(data: pd.DataFrame, cal_data: pd.DataFrame, team_leader_data:
         with col9:
             st.markdown("If unable to find advisor, please click 'Add New Recruiting Advisor' in the 'Add/Remove Recruit' tab")
 
-        f3, f4, f5, f6, f7 = st.columns([1, 1, 1, 1, 1])
-        with f3:
-            clear = st.form_submit_button(label="Clear Advisor Name", on_click=clear_form)
-        with f4:
-            submit = st.form_submit_button("Submit Recruit Info")
+        submit = st.form_submit_button("Submit Recruit Info")
 
     if submit:
         cursor = conn_update.cursor()
 
         # Get existing_member_id from members table
-        cursor.execute("SELECT member_id FROM members WHERE name = %s", (existing_recruit_name,))
-        existing_member_id = cursor.fetchone()[0]
+        if existing_recruit_name == None:
+            st.error("Please Choose A Recruit.")
+        else:
+            cursor.execute("SELECT member_id FROM members WHERE name = %s", (existing_recruit_name,))
+            existing_member_id = cursor.fetchone()[0]
 
-        # Get training_date_id from calendar_dates table
-        new_recruit_year = int(new_recruit_year)
-        cursor.execute("SELECT training_date_id FROM calendar_dates WHERE training_date = %s AND EXTRACT(YEAR FROM start_date) = %s",
-                       (new_recruit_training_date, new_recruit_year))
-        training_date_id = cursor.fetchone()[0]
+            if new_recruit_year == None or new_recruit_purchase == None or new_recruit_training_date == None or new_recruit_team_leader == None or new_recruit_recruiting_advisor == None:
+                st.error("Please Fill In All Required Fields.")
 
-        # Get team_leader_id from members table
-        cursor.execute("SELECT member_id FROM members WHERE name = %s", (new_recruit_team_leader,))
-        team_leader_id = cursor.fetchone()[0]
+            else:
+                fields_filled = True
+                new_recruit_year = int(new_recruit_year)
+                cursor.execute("SELECT training_date_id FROM calendar_dates WHERE training_date = %s AND EXTRACT(YEAR FROM start_date) = %s",
+                            (new_recruit_training_date, new_recruit_year))
+                training_date_id = cursor.fetchone()[0]
 
-        # Get recruiting_advisor_id from members table
-        cursor.execute("SELECT member_id FROM members WHERE name = %s", (new_recruit_recruiting_advisor,))
-        recruiting_advisor_id = cursor.fetchone()[0]
+                cursor.execute("SELECT member_id FROM members WHERE name = %s", (new_recruit_team_leader,))
+                team_leader_id = cursor.fetchone()[0]
 
-        # Delete existing records in member_details table
-        cursor.execute("DELETE FROM member_details WHERE member_id_details_fk = %s", (existing_member_id,))
+                cursor.execute("SELECT member_id FROM members WHERE name = %s", (new_recruit_recruiting_advisor,))
+                recruiting_advisor_id = cursor.fetchone()[0]
 
-        # Insert new records in member_details table
-        cursor.execute("INSERT INTO member_details (member_id_details_fk, purchase, training_date_id_fk) VALUES (%s, %s, %s)",
-                       (existing_member_id, new_recruit_purchase, training_date_id))
+                cursor.execute("DELETE FROM member_details WHERE member_id_details_fk = %s", (existing_member_id,))
+                cursor.execute("INSERT INTO member_details (member_id_details_fk, purchase, training_date_id_fk) VALUES (%s, %s, %s)",
+                                (existing_member_id, new_recruit_purchase, training_date_id))
 
-        cursor.execute("DELETE FROM member_relationships WHERE member_relationship_id_fk = %s", (existing_member_id,))
+                cursor.execute("DELETE FROM member_relationships WHERE member_relationship_id_fk = %s", (existing_member_id,))
+                cursor.execute("INSERT INTO member_relationships (member_relationship_id_fk, team_leader_id, recruiting_advisor_id) VALUES (%s, %s, %s)",
+                            (existing_member_id, team_leader_id, recruiting_advisor_id))
 
-        # Insert new relationships in member_relationships table
-        cursor.execute("INSERT INTO member_relationships (member_relationship_id_fk, team_leader_id, recruiting_advisor_id) VALUES (%s, %s, %s)",
-                       (existing_member_id, team_leader_id, recruiting_advisor_id))
+                if st.session_state.new_advisor_name != "":
+                    cursor.execute("UPDATE members SET name = %s WHERE name = %s", (st.session_state.new_advisor_name, existing_recruit_name,))
 
-        if st.session_state.new_advisor_name != "":
-            cursor.execute("UPDATE members SET name = %s WHERE name = %s", (st.session_state.new_advisor_name, existing_recruit_name,))
-
-        conn_update.commit()
-        cursor.close()
-        st.success(f"Recruit {existing_recruit_name} updated successfully!")
-        data, not_needed, not_needed_two = get_data(conn_update)
+                conn_update.commit()
+                cursor.close()
+                st.success(f"Recruit {existing_recruit_name} updated successfully!")
+                data, not_needed, not_needed_two = get_data(conn_update)
 
     st.markdown("<h1 style='text-align: center; color: white;'>Recruit Data</h1>", unsafe_allow_html=True)
     st.dataframe(data, hide_index=True)

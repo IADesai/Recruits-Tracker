@@ -92,36 +92,42 @@ def on_toggle_or_archive_change() -> None:
 
 
 def create_inserts(data: pd.DataFrame, cal_data: pd.DataFrame, team_leader_data: pd.DataFrame, conn_insert: connection) -> None:
-    """creates main table"""
+  """creates main table"""
 
-    with st.form("insert_recruit_form"):
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            new_recruit_name = st.text_input("Recruit Name")
-        with col2:
-            new_recruit_purchase = st.selectbox("Recruit Purchase", ["Owner", "Earner"])
-        with col3:
-            new_recruit_training_date = st.selectbox("Training Date", cal_data["training_date"].unique())
-        col4, col5, col6 = st.columns(3)
-        with col4:
-            cal_data['start_year'] = pd.to_datetime(cal_data['start_date']).dt.year
-            unique_years = cal_data['start_year'].unique()
-            new_recruit_year = st.selectbox("Calendar Year", unique_years)
-        with col5:
-            new_recruit_team_leader = st.selectbox("Team Leader", team_leader_data["name"].unique())
-        with col6:
-            existing_advisors = list(data["member_name"].unique())
-            new_recruit_recruiting_advisor = st.selectbox("Recruiting Advisor", existing_advisors)
-            st.markdown("If unable to find advisor, please click 'Add New Recruiting Advisor' below")
+  with st.form("insert_recruit_form", clear_on_submit=True):
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        new_recruit_name = st.text_input("Recruit Name*")
+    with col2:
+        new_recruit_purchase = st.selectbox("Recruit Purchase*", ["Owner", "Earner"], index=None, placeholder="Choose an Advisor...")
+    with col3:
+        new_recruit_training_date = st.selectbox("Training Date*", cal_data["training_date"].unique(), index=None)
+    col4, col5, col6 = st.columns(3)
+    with col4:
+        cal_data['start_year'] = pd.to_datetime(cal_data['start_date']).dt.year
+        unique_years = cal_data['start_year'].unique()
+        new_recruit_year = st.selectbox("Calendar Year*", unique_years, index=None)
+    with col5:
+        new_recruit_team_leader = st.selectbox("Team Leader*", team_leader_data["name"].unique(), index=None, placeholder="Choose a Team Leader...")
+    with col6:
+        existing_advisors = list(data["member_name"].unique())
+        new_recruit_recruiting_advisor = st.selectbox("Recruiting Advisor*", existing_advisors, index=None, placeholder="Choose an Advisor...")
+        st.markdown("If unable to find advisor, please click 'Add New Recruiting Advisor' below")
 
-        submit_recruit = st.form_submit_button("Add Recruit")
+    submit_recruit = st.form_submit_button("Add Recruit")
 
-    if submit_recruit:
-        cursor = conn_insert.cursor()
-        # Get training_date_id from calendar_dates table
+  if submit_recruit:
+    if new_recruit_name == "":
+      st.error("Please Input a Name.")
+    else:
+      cursor = conn_insert.cursor()
+      # Get training_date_id from calendar_dates table
+      if new_recruit_year == None or new_recruit_purchase == None or new_recruit_training_date == None or new_recruit_team_leader == None or new_recruit_recruiting_advisor == None:
+        st.error("Please Fill In All Required Fields.")
+      else:
         new_recruit_year = int(new_recruit_year)
         cursor.execute("SELECT training_date_id FROM calendar_dates WHERE training_date = %s AND EXTRACT(YEAR FROM start_date) = %s",
-                   (new_recruit_training_date, new_recruit_year))
+                  (new_recruit_training_date, new_recruit_year))
         training_date_id = cursor.fetchone()[0]
 
         # Get team_leader_id from members table
@@ -159,54 +165,57 @@ def create_inserts(data: pd.DataFrame, cal_data: pd.DataFrame, team_leader_data:
         st.success(f"Recruit {new_recruit_name} added successfully!")
         data, not_needed, not_needed_two = get_data(conn_insert)
 
-    with st.form("new_advisor_form"):
-        new_advisor_name = st.text_input("Enter New Recruiting Advisor Name")
-        if st.form_submit_button("Add New Recruiting Advisor"):
-            cursor = conn_insert.cursor()
+  with st.form("new_advisor_form", clear_on_submit=True):
+      new_advisor_name = st.text_input("Enter New Recruiting Advisor Name")
+      if st.form_submit_button("Add New Recruiting Advisor"):
+        if new_advisor_name == "":
+          st.error("Please Input a Name.")
+        else:
+          cursor = conn_insert.cursor()
 
-            # Insert new advisor into members table
-            cursor.execute("INSERT INTO members (name, role_id_fk) VALUES (%s, %s)",
-                          (new_advisor_name, 2))
+          # Insert new advisor into members table
+          cursor.execute("INSERT INTO members (name, role_id_fk) VALUES (%s, %s)",
+                        (new_advisor_name, 2))
+
+          conn_insert.commit()
+          cursor.close()
+          st.success(f"New advisor {new_advisor_name} added successfully!")
+          data, not_needed, not_needed_two = get_data(conn_insert)
+
+  with st.form("remove_advisor_form", clear_on_submit=True):
+    # Get unique advisor names and sort them to match the order in the DataFrame
+    st.session_state['names'] = sorted(data["member_name"])
+
+    advisor_to_remove = st.selectbox("Select Advisor to Remove", st.session_state['names'], index=None, placeholder="Choose a Recruit/Advisor...")
+
+    if st.form_submit_button("Remove Advisor"):
+      if advisor_to_remove == None:
+        st.error("Please Select a Recruit/Advisor.")
+      else:
+        cursor = conn_insert.cursor()
+
+        # Check if the advisor has recruits before removing
+        cursor.execute("SELECT COUNT(*) FROM member_relationships WHERE team_leader_id = "
+                        "(SELECT member_id FROM members WHERE name = %s LIMIT 1) OR recruiting_advisor_id = "
+                        "(SELECT member_id FROM members WHERE name = %s LIMIT 1)", (advisor_to_remove, advisor_to_remove,))
+        recruit_count = cursor.fetchall()[0]
+
+        if recruit_count[0] > 0:
+            st.error(f"Cannot remove advisor {advisor_to_remove}. There are {recruit_count[0]} recruits assigned to this advisor.")
+        else:
+            # Remove advisor from members table
+            cursor.execute("DELETE FROM members WHERE name = %s", (advisor_to_remove,))
 
             conn_insert.commit()
             cursor.close()
-            st.success(f"New advisor {new_advisor_name} added successfully!")
+            st.success(f"Advisor {advisor_to_remove} removed successfully!")
+
+            # Refresh the data DataFrame after successful removal
             data, not_needed, not_needed_two = get_data(conn_insert)
 
-    with st.form("remove_advisor_form"):
-      # Get unique advisor names and sort them to match the order in the DataFrame
-      unique_advisor_names = sorted(data["member_name"].unique())
-      selected_advisor_container = st.empty()
-      advisor_to_remove = selected_advisor_container.selectbox("Select Advisor to Remove", unique_advisor_names)
 
-      if st.form_submit_button("Remove Advisor"):
-          cursor = conn_insert.cursor()
-
-          # Check if the advisor has recruits before removing
-          cursor.execute("SELECT COUNT(*) FROM member_relationships WHERE team_leader_id = "
-                          "(SELECT member_id FROM members WHERE name = %s LIMIT 1) OR recruiting_advisor_id = "
-                          "(SELECT member_id FROM members WHERE name = %s LIMIT 1)", (advisor_to_remove, advisor_to_remove,))
-          recruit_count = cursor.fetchall()[0]
-
-          if recruit_count[0] > 0:
-              st.error(f"Cannot remove advisor {advisor_to_remove}. There are {recruit_count[0]} recruits assigned to this advisor.")
-          else:
-              # Remove advisor from members table
-              cursor.execute("DELETE FROM members WHERE name = %s", (advisor_to_remove,))
-
-              conn_insert.commit()
-              cursor.close()
-              st.success(f"Advisor {advisor_to_remove} removed successfully!")
-
-              # Refresh the data DataFrame after successful removal
-              data, not_needed, not_needed_two = get_data(conn_insert)
-
-              # Update the options in the existing selectbox
-              unique_advisor_names = sorted(data["member_name"].unique())
-              advisor_to_remove = selected_advisor_container.selectbox("Select Advisor to Remove", unique_advisor_names, index=0)
-
-    st.markdown("<h1 style='text-align: center; color: white;'>Recruit Data</h1>", unsafe_allow_html=True)
-    st.dataframe(data, hide_index=True)
+  st.markdown("<h1 style='text-align: center; color: white;'>Recruit Data</h1>", unsafe_allow_html=True)
+  st.dataframe(data, hide_index=True)
 
 if __name__ == "__main__":
 

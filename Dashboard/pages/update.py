@@ -93,16 +93,21 @@ def handle_dnq(dnq_date, dnq_checkbox):
     return dnq_date if not dnq_checkbox else 'DNQ'
 
 
+def handle_remove_date(date_value, remove_checkbox):
+    return None if remove_checkbox else date_value
+
+
 def create_sales_insert_form(data: pd.DataFrame, conn_insert: connection) -> None:
     """Creates the form for inserting sales information for a recruit"""
 
-    with st.form("insert_sales_form"):
+    with st.form("insert_sales_form", clear_on_submit=True):
         form_column, data_column = st.columns(2)
         with form_column:
             unique_member_names = data['member_name'].unique()
-            selected_recruit = st.selectbox('Select Recruit Name', unique_member_names)
+            selected_recruit = st.selectbox('Select Recruit Name', unique_member_names, index=None, placeholder="Choose a Recruit...")
 
-            newcomer_demo_date = st.date_input("Newcomer Demo Date", key="newcomer_demo_date")
+            newcomer_demo_date = st.date_input("Newcomer Demo Date", key="newcomer_demo_date", value=None)
+            newcomer_demo_remove = st.checkbox("Remove Newcomer Demo Date")
 
             st.markdown("Leave date fields empty if you do not want to add a date")
 
@@ -112,8 +117,8 @@ def create_sales_insert_form(data: pd.DataFrame, conn_insert: connection) -> Non
                 first_sale_date = st.date_input("First Sale Date", key="first_sale_date", value=None)
             with dnq_column:
                 st.markdown("")
-                st.markdown("")
                 first_sale_dnq = st.checkbox("First Sale DNQ")
+                first_sale_remove = st.checkbox("Remove 1st Date")
 
             # Sale 2
             date_column, dnq_column = st.columns(2)
@@ -121,8 +126,8 @@ def create_sales_insert_form(data: pd.DataFrame, conn_insert: connection) -> Non
                 second_sale_date = st.date_input("Second Sale Date", key="second_sale_date", value=None)
             with dnq_column:
                 st.markdown("")
-                st.markdown("")
                 second_sale_dnq = st.checkbox("Second Sale DNQ")
+                second_sale_remove = st.checkbox("Remove 2nd Sale Date")
 
             # Sale 3
             date_column, dnq_column = st.columns(2)
@@ -130,8 +135,8 @@ def create_sales_insert_form(data: pd.DataFrame, conn_insert: connection) -> Non
                 third_sale_date = st.date_input("Third Sale Date", key="third_sale_date", value=None)
             with dnq_column:
                 st.markdown("")
-                st.markdown("")
                 third_sale_dnq = st.checkbox("Third Sale DNQ")
+                third_sale_remove = st.checkbox("Remove 3rd Sale Date")
 
             # Sale 4
             date_column, dnq_column = st.columns(2)
@@ -139,8 +144,8 @@ def create_sales_insert_form(data: pd.DataFrame, conn_insert: connection) -> Non
                 fourth_sale_date = st.date_input("Fourth Sale Date", key="fourth_sale_date", value=None)
             with dnq_column:
                 st.markdown("")
-                st.markdown("")
                 fourth_sale_dnq = st.checkbox("Fourth Sale DNQ")
+                fourth_sale_remove = st.checkbox("Remove 4th Sale Date")
 
             # Sale 5
             date_column, dnq_column = st.columns(2)
@@ -148,8 +153,8 @@ def create_sales_insert_form(data: pd.DataFrame, conn_insert: connection) -> Non
                 fifth_sale_date = st.date_input("Fifth Sale Date", key="fifth_sale_date", value=None)
             with dnq_column:
                 st.markdown("")
-                st.markdown("")
                 fifth_sale_dnq = st.checkbox("Fifth Sale DNQ")
+                fifth_sale_remove = st.checkbox("Remove 5th Sale Date")
 
             # Sale 6
             date_column, dnq_column = st.columns(2)
@@ -157,8 +162,8 @@ def create_sales_insert_form(data: pd.DataFrame, conn_insert: connection) -> Non
                 sixth_sale_date = st.date_input("Sixth Sale Date", key="sixth_sale_date", value=None)
             with dnq_column:
                 st.markdown("")
-                st.markdown("")
                 sixth_sale_dnq = st.checkbox("Sixth Sale DNQ")
+                sixth_sale_remove = st.checkbox("Remove 6th Sale Date")
 
             # Sale 7
             date_column, dnq_column = st.columns(2)
@@ -166,8 +171,8 @@ def create_sales_insert_form(data: pd.DataFrame, conn_insert: connection) -> Non
                 seventh_sale_date = st.date_input("Seventh Sale Date", key="seventh_sale_date", value=None)
             with dnq_column:
                 st.markdown("")
-                st.markdown("")
                 seventh_sale_dnq = st.checkbox("Seventh Sale DNQ")
+                seventh_sale_remove = st.checkbox("Remove 7th Sale Date")
 
             # Sale 8
             date_column, dnq_column = st.columns(2)
@@ -175,63 +180,104 @@ def create_sales_insert_form(data: pd.DataFrame, conn_insert: connection) -> Non
                 eighth_sale_date = st.date_input("Eighth Sale Date", key="eighth_sale_date", value=None)
             with dnq_column:
                 st.markdown("")
-                st.markdown("")
                 eighth_sale_dnq = st.checkbox("Eighth Sale DNQ")
+                eighth_sale_remove = st.checkbox("Remove 8th Sale Date")
 
             submit_sales = st.form_submit_button("Insert Sales Information")
 
         if submit_sales:
             cursor = conn_insert.cursor()
-            cursor.execute("SELECT member_id FROM members WHERE name = %s", (selected_recruit,))
-            member_id_fk_sales = cursor.fetchone()[0]
 
-            # Check if the member already has a record in member_sales
-            cursor.execute("SELECT * FROM member_sales WHERE member_id_fk = %s", (member_id_fk_sales,))
-            existing_record = cursor.fetchone()
+            if selected_recruit:
+                cursor.execute("SELECT member_id FROM members WHERE name = %s", (selected_recruit,))
+                member_id_fk_sales = cursor.fetchone()[0]
 
-            if existing_record:
-                # Member has an existing record, perform UPDATE
-                cursor.execute("UPDATE member_sales SET "
-                            "newcomer_demo = %s, "
-                            "first_sale = %s, "
-                            "second_sale = %s, "
-                            "third_sale = %s, "
-                            "fourth_sale = %s, "
-                            "fifth_sale = %s, "
-                            "sixth_sale = %s, "
-                            "seventh_sale = %s, "
-                            "eighth_sale = %s "
-                            "WHERE member_id_fk = %s",
-                            (newcomer_demo_date,
-                                handle_dnq(first_sale_date, first_sale_dnq),
-                                handle_dnq(second_sale_date, second_sale_dnq),
-                                handle_dnq(third_sale_date, third_sale_dnq),
-                                handle_dnq(fourth_sale_date, fourth_sale_dnq),
-                                handle_dnq(fifth_sale_date, fifth_sale_dnq),
-                                handle_dnq(sixth_sale_date, sixth_sale_dnq),
-                                handle_dnq(seventh_sale_date, seventh_sale_dnq),
-                                handle_dnq(eighth_sale_date, eighth_sale_dnq),
-                                member_id_fk_sales))
+                # Check if the member already has a record in member_sales
+                cursor.execute("SELECT * FROM member_sales WHERE member_id_fk = %s", (member_id_fk_sales,))
+                existing_record = cursor.fetchone()
+
+                if existing_record:
+                    # Member has an existing record, perform UPDATE
+                    update_query = "UPDATE member_sales SET "
+                    update_params = []
+
+                    if newcomer_demo_date is not None and not newcomer_demo_remove:
+                        update_query += "newcomer_demo = %s, "
+                        update_params.append(newcomer_demo_date)
+
+                    # Update for first sale
+                    if first_sale_date is not None and not first_sale_remove:
+                        update_query += "first_sale = %s, "
+                        update_params.append(handle_dnq(first_sale_date, first_sale_dnq))
+
+                    # Update for second sale
+                    if second_sale_date is not None and not second_sale_remove:
+                        update_query += "second_sale = %s, "
+                        update_params.append(handle_dnq(second_sale_date, second_sale_dnq))
+
+                    if third_sale_date is not None and not third_sale_remove:
+                        update_query += "third_sale = %s, "
+                        update_params.append(handle_dnq(third_sale_date, third_sale_dnq))
+                    
+                    if fourth_sale_date is not None and not fourth_sale_remove:
+                        update_query += "fourth_sale = %s, "
+                        update_params.append(handle_dnq(fourth_sale_date, fourth_sale_dnq))
+
+                    # Update for fifth sale
+                    if fifth_sale_date is not None and not fifth_sale_remove:
+                        update_query += "fifth_sale = %s, "
+                        update_params.append(handle_dnq(fifth_sale_date, fifth_sale_dnq))
+
+                    # Update for sixth sale
+                    if sixth_sale_date is not None and not sixth_sale_remove:
+                        update_query += "sixth_sale = %s, "
+                        update_params.append(handle_dnq(sixth_sale_date, sixth_sale_dnq))
+
+                    # Update for seventh sale
+                    if seventh_sale_date is not None and not seventh_sale_remove:
+                        update_query += "seventh_sale = %s, "
+                        update_params.append(handle_dnq(seventh_sale_date, seventh_sale_dnq))
+
+                    # Update for eighth sale
+                    if eighth_sale_date is not None and not eighth_sale_remove:
+                        update_query += "eighth_sale = %s, "
+                        update_params.append(handle_dnq(eighth_sale_date, eighth_sale_dnq))
+                    
+                    # Remove the trailing comma and execute the query
+                    if len(update_params) > 0:
+                        update_query = update_query.rstrip(', ')
+                        update_query += " WHERE member_id_fk = %s"
+                        update_params.append(member_id_fk_sales)
+
+                        cursor.execute(update_query, tuple(update_params))
+                        conn_insert.commit()
+                        cursor.close()
+
+                        data, not_needed, not_needed_two = get_data(conn_insert)
+                        st.success(f"Sales information for recruit {selected_recruit} updated successfully!")
+                    else:
+                        st.error("No updates were made as no dates were provided.")
+                else:
+                    # Member doesn't have a record, perform INSERT
+                    cursor.execute("INSERT INTO member_sales (member_id_fk, newcomer_demo, first_sale, second_sale, third_sale, fourth_sale, fifth_sale, sixth_sale, seventh_sale, eighth_sale) "
+                                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                                (member_id_fk_sales,
+                                    handle_remove_date(newcomer_demo_date, newcomer_demo_remove),
+                                    handle_remove_date(handle_dnq(first_sale_date, first_sale_dnq), first_sale_remove),
+                                    handle_remove_date(handle_dnq(second_sale_date, second_sale_dnq), second_sale_remove),
+                                    handle_remove_date(handle_dnq(third_sale_date, third_sale_dnq), third_sale_remove),
+                                    handle_remove_date(handle_dnq(fourth_sale_date, fourth_sale_dnq), fourth_sale_remove),
+                                    handle_remove_date(handle_dnq(fifth_sale_date, fifth_sale_dnq), fifth_sale_remove),
+                                    handle_remove_date(handle_dnq(sixth_sale_date, sixth_sale_dnq), sixth_sale_remove),
+                                    handle_remove_date(handle_dnq(seventh_sale_date, seventh_sale_dnq), seventh_sale_remove),
+                                    handle_remove_date(handle_dnq(eighth_sale_date, eighth_sale_dnq), eighth_sale_remove)))
+
+                    conn_insert.commit()
+                    cursor.close()
+                    data, not_needed, not_needed_two = get_data(conn_insert)
+                    st.success(f"Sales information for recruit {selected_recruit} inserted successfully!")
             else:
-                # Member doesn't have a record, perform INSERT
-                cursor.execute("INSERT INTO member_sales (member_id_fk, newcomer_demo, first_sale, second_sale, third_sale, fourth_sale, fifth_sale, sixth_sale, seventh_sale, eighth_sale) "
-                            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                            (member_id_fk_sales,
-                                newcomer_demo_date,
-                                handle_dnq(first_sale_date, first_sale_dnq),
-                                handle_dnq(second_sale_date, second_sale_dnq),
-                                handle_dnq(third_sale_date, third_sale_dnq),
-                                handle_dnq(fourth_sale_date, fourth_sale_dnq),
-                                handle_dnq(fifth_sale_date, fifth_sale_dnq),
-                                handle_dnq(sixth_sale_date, sixth_sale_dnq),
-                                handle_dnq(seventh_sale_date, seventh_sale_dnq),
-                                handle_dnq(eighth_sale_date, eighth_sale_dnq)))
-
-            conn_insert.commit()
-            cursor.close()
-            data, not_needed, not_needed_two = get_data(conn_insert)
-            st.success(f"Sales information for recruit {selected_recruit} inserted successfully!")
-
+                st.error("Please Select A Recruit.")
         with data_column:
             st.markdown("<h1 style='text-align: center; color: white;'>Recruit Data</h1>", unsafe_allow_html=True)
             st.dataframe(data, hide_index=True)

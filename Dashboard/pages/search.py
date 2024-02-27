@@ -91,18 +91,18 @@ def on_toggle_or_archive_change() -> None:
 
 
 def create_tables(data: pd.DataFrame, cal_data: pd.DataFrame, team_leader_data: pd.DataFrame) -> None:
-    """creates main table"""
-    unique_member_names = data['member_name'].unique()
-    selected_member_name = st.text_input('Search for Member Name (Please press Enter to apply)', '')
-    filtered_data_df = data[data['member_name'].str.contains(selected_member_name, case=False)]
-    st.dataframe(filtered_data_df, hide_index=True, use_container_width=True)
+  """creates main table"""
+  unique_member_names = data['member_name'].unique()
+  selected_member_name = st.text_input('Search for Member Name (Please press Enter to apply)', '')
+  filtered_data_df = data[data['member_name'].str.contains(selected_member_name, case=False)]
+  st.dataframe(filtered_data_df, hide_index=True, use_container_width=True)
 
-    st.markdown("<h1 style='text-align: center;'>Calendar Table</h1>", unsafe_allow_html=True)
-    cal_data['start_year'] = pd.to_datetime(cal_data['start_date']).dt.year
-    unique_years = cal_data['start_year'].unique()
-    selected_year = st.selectbox('Select Year', unique_years)
-    filtered_df = cal_data[cal_data['start_year'] == selected_year]
-    st.dataframe(filtered_df, hide_index=True, use_container_width=True)
+  st.markdown("<h1 style='text-align: center;'>Calendar Table</h1>", unsafe_allow_html=True)
+  cal_data['start_year'] = pd.to_datetime(cal_data['start_date']).dt.year
+  unique_years = cal_data['start_year'].unique()
+  selected_year = st.selectbox('Select Year', unique_years)
+  filtered_df = cal_data[cal_data['start_year'] == selected_year].drop(columns=['start_year'])
+  st.dataframe(filtered_df, hide_index=True, use_container_width=True)
 
 
 if __name__ == "__main__":
