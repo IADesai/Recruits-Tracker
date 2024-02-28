@@ -75,8 +75,8 @@ def sidebar() -> int:
     """Sidebar for the streamlit dashboard, with interactive buttons"""
     if "start_index" not in st.session_state:
         st.session_state.start_index = 0
-    st.sidebar.markdown("<h1 style='text-align: center; color: white;'>Thermomix Recruits Tracker</h1>", unsafe_allow_html=True)
-    st.sidebar.markdown("An app for helping you track your thermomix recruits")
+    st.sidebar.markdown("<h1 style='text-align: center; color: white;'>Recruits Tracker</h1>", unsafe_allow_html=True)
+    st.sidebar.markdown("An app for helping you track your recruits")
     st.sidebar.title("Options & Filters Menu")
     st.sidebar.page_link("streamlit.py", label="Home", icon="🏠")
     st.sidebar.page_link("pages/insertions.py", label="Add/Remove Recruit", icon="📝")
