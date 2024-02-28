@@ -197,7 +197,7 @@ def get_db_connection():   # pragma: no cover
 
 if __name__ == "__main__":
 
-  st.set_page_config(page_title="Thermomix Recruits Tracker", layout="wide")
+  st.set_page_config(page_title="Recruits Tracker", layout="wide")
 
   custom_css = """
   <style>
