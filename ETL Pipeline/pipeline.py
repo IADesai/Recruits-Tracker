@@ -16,11 +16,9 @@ if __name__ == "__main__":
 
     # Load
 
-    create_database()
+    # create_database()
     
-    conn_thermomix = connect(
-        database=config["DATABASE_NAME"]
-    )
+    conn_thermomix = get_db_connection()
     
     create_tables(conn_thermomix)
 

@@ -1,5 +1,5 @@
 [server]
-port = 8507
+port = 8508
 [theme]
 base="dark"
 primaryColor="#009a3d"

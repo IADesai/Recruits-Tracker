@@ -1,9 +1,11 @@
 """Streamlit dashboard application code"""
-from psycopg2 import connect
+from psycopg2 import connect, Error
 from psycopg2.extensions import connection
 import streamlit as st
 import streamlit.components.v1 as components
 import pandas as pd
+import sys
+import urllib.parse as up
 from os import environ
 from dotenv import load_dotenv
 
@@ -224,6 +226,26 @@ def create_inserts(data: pd.DataFrame, cal_data: pd.DataFrame, team_leader_data:
   filtered_df = cal_data[cal_data['start_year'] == selected_year].drop(columns=['start_year', 'training_date_id'])
   st.dataframe(filtered_df, hide_index=True, use_container_width=True)
 
+
+def get_db_connection():   # pragma: no cover
+    """Establishes a connection with the PostgreSQL database."""
+    try:
+        up.uses_netloc.append("postgres")
+        url = up.urlparse(st.secrets.db_credentials.url)
+        conn = connect(database=url.path[1:],
+        user=url.username,
+        password=url.password,
+        host=url.hostname,
+        port=url.port
+        )
+        print("Database connection established successfully.")
+        return conn
+    except Error as err:
+        print("Error connecting to database: ", err)
+        sys.exit()
+
+
+
 if __name__ == "__main__":
 
   st.set_page_config(page_title="Thermomix Recruits Tracker", layout="wide")
@@ -240,9 +262,7 @@ if __name__ == "__main__":
   dashboard_header()
   sidebar()
 
-  conn_thermomix = connect(
-      database=config["DATABASE_NAME"]
-  )
+  conn_thermomix = get_db_connection()
 
   live_df, calendar, team_leaders = get_data(conn_thermomix)
 

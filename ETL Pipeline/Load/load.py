@@ -1,9 +1,11 @@
 """This module contains functions used to create and load the database."""
-from psycopg2 import connect, extensions
+from psycopg2 import connect, extensions, Error
 from psycopg2.extensions import connection
 import psycopg2.extras
 import pandas as pd
 from datetime import datetime, timedelta
+import sys
+import urllib.parse as up
 from os import environ
 from dotenv import load_dotenv
 
@@ -115,12 +117,28 @@ def populate_database(conn_current: connection):
     conn_current.commit()
 
 
+def get_db_connection():   # pragma: no cover
+    """Establishes a connection with the PostgreSQL database."""
+    try:
+        up.uses_netloc.append("postgres")
+        url = up.urlparse(environ["DATABASE_URL"])
+        conn = psycopg2.connect(database=url.path[1:],
+        user=url.username,
+        password=url.password,
+        host=url.hostname,
+        port=url.port
+        )
+        print("Database connection established successfully.")
+        return conn
+    except Error as err:
+        print("Error connecting to database: ", err)
+        sys.exit()
+
+
 if __name__ == "__main__":
-    create_database()
+    # create_database()
     
-    conn_thermomix = connect(
-        database=config["DATABASE_NAME"]
-    )
+    conn_thermomix = get_db_connection()
     
     create_tables(conn_thermomix)
     populate_database(conn_thermomix)

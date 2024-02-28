@@ -1,8 +1,10 @@
 """Streamlit dashboard application code"""
-from psycopg2 import connect
+from psycopg2 import connect, Error
 from psycopg2.extensions import connection
 import streamlit as st
 import pandas as pd
+import sys
+import urllib.parse as up
 from os import environ
 from dotenv import load_dotenv
 
@@ -282,6 +284,26 @@ def create_sales_insert_form(data: pd.DataFrame, conn_insert: connection) -> Non
             st.markdown("<h1 style='text-align: center; color: white;'>Recruit Data</h1>", unsafe_allow_html=True)
             st.dataframe(data, hide_index=True)
 
+
+def get_db_connection():   # pragma: no cover
+    """Establishes a connection with the PostgreSQL database."""
+    try:
+        up.uses_netloc.append("postgres")
+        url = up.urlparse(st.secrets.db_credentials.url)
+        conn = connect(database=url.path[1:],
+        user=url.username,
+        password=url.password,
+        host=url.hostname,
+        port=url.port
+        )
+        print("Database connection established successfully.")
+        return conn
+    except Error as err:
+        print("Error connecting to database: ", err)
+        sys.exit()
+
+
+
 if __name__ == "__main__":
     st.set_page_config(page_title="Thermomix Recruits Tracker", layout="wide")
 
@@ -297,9 +319,7 @@ if __name__ == "__main__":
     dashboard_header()
     sidebar()
 
-    conn_thermomix = connect(
-        database=config["DATABASE_NAME"]
-    )
+    conn_thermomix = get_db_connection()
 
     live_df, calendar, team_leaders = get_data(conn_thermomix)
 
