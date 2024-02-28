@@ -215,8 +215,6 @@ if __name__ == "__main__":
 
   live_df, calendar, team_leaders = get_data(conn_thermomix)
 
-  conn_thermomix = connect(
-      database=config["DATABASE_NAME"]
-  )
+  conn_thermomix = get_db_connection()
 
   create_inserts(live_df, calendar, team_leaders, conn_thermomix)
